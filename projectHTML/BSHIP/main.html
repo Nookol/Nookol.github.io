@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Battle Ship!</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+</head>
+<style>
+    @media (min-width: 1200px), (min-width: 960px) and (-webkit-device-pixel-ratio: 1.25) {
+        .bouncing-div {
+            z-index: 0;
+            position: absolute;
+            top: calc(50% - 50px);
+            left: calc(50% - 200px);
+            animation: bounce 3s normal;
+        }
+
+        .bouncing-div-2 {
+            z-index: 1;
+            position: absolute;
+            bottom:calc(50% - 50px);
+            right:calc(50% - 200px);
+            animation: bounce-2 3s normal;
+        }
+
+        @keyframes bounce {
+            0% {
+                top: 0;
+                left: 0;
+            }
+            100% {
+                top: calc(50% - 50px);
+                left: calc(50% - 200px);
+            }
+        }
+        @keyframes bounce-2 {
+            0% {
+                bottom: 0;
+                right: 0;
+            }
+            100% {
+                bottom:calc(50% - 50px);
+                right:calc(50% - 200px);
+            }
+        }
+        .center {
+            margin-left: auto;
+            margin-right: auto;
+            width: 40%;
+        }
+
+        .centerIMG {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 40%;
+        }
+
+        .grid-container {
+            flex-shrink: 1;
+            overflow-y: hidden;
+            display: grid;
+            grid-template-columns: auto auto auto;
+            gap: 30px;
+            padding: 10px;
+        }
+
+        .grid-container2 {
+            flex-shrink: 1;
+            display: block;
+            grid-template-columns: auto;
+        }
+
+        .cell1 {
+            width: 5vw;
+            height: 5vh;
+            display: table-cell;
+            max-width: 50px;
+            min-width: 50px;
+            max-height: 50px;
+            min-height: 50px;
+            border: 2px dashed rgba(255, 255, 255, 0.54);
+        }
+
+        body {
+            background: linear-gradient(90deg, #231e1e, #ff0062, #0080ff, #000000);
+            animation: gradient 8s ease infinite;
+            background-size: 400%;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .gif {
+            position: fixed;
+            top: 50px;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .tableLook {
+            background-color: rgba(90, 51, 117, 0.35);
+            font-size: 15px;
+            text-align: center;
+            border: white solid 4px;
+        }
+
+        #tableSIZE {
+            display: block;
+            overflow: clip;
+        }
+
+        #background-video {
+            position: absolute;
+            z-index: -1;
+        }
+
+        #boatStats {
+            width: 30vw;
+            height: 30vw;
+        }
+    }
+
+
+</style>
+<script>
+    function checkHIT(tokStr) {
+
+        let x = tokStr.charAt(0)
+        let y = tokStr.charAt(1)
+
+        if (GAMEPLAY.Board[x][y].Hit !== true) {
+            if (GAMEPLAY.Board[x][y].ship !== null) {
+                GAMEPLAY.reduceHealth(GAMEPLAY.Board[x][y])
+                GAMEPLAY.Board[x][y].Hit = true
+                UI.HitSound();
+                GAMEPLAY.Hits++
+                GAMEPLAY.ShotsFired++
+                GAMEPLAY.ShotsLeft--
+                UI.popUp(x, y);
+
+                // UI.playGif("https://media.tenor.com/oslAUCxTbO4AAAAC/rock-sus.gif")
+
+            }//MISS
+            else {
+                GAMEPLAY.Board[x][y].Hit = true
+                UI.MissSound();
+                GAMEPLAY.ShotsFired++
+                GAMEPLAY.ShotsLeft--
+                GAMEPLAY.Misses++
+                UI.updateStats()
+            }
+            if (UI.checkSunkShip(GAMEPLAY.Board[x][y])) {
+                GAMEPLAY.ShipsLeft--;
+                let obj = GAMEPLAY.ShipInfo.find(o => o.CODE === GAMEPLAY.Board[x][y].ship);
+                document.getElementById(`${GAMEPLAY.Board[x][y].ship}`).innerHTML =
+                    `<div>
+                     <img src="imgs/red-x-icon.png" height="30"> <span>
+                      ${obj.name}
+                    </span>
+                    </div>`
+            }
+            console.table(GAMEPLAY.Board)
+            UI.updateStats()
+        }
+    }
+
+    let UI = {
+
+        popUpError: function (option, message){
+            var popup = document.createElement("div");
+            popup.innerHTML = message
+            popup.style.color = "rgba(255,0,98,0.82)"
+            popup.style.background = 'rgba(33,27,27,0.45)'
+            popup.style.borderRadius = '70px'
+            popup.style.textAlign = "center"
+            popup.style.fontSize = '24px'
+            document.getElementById(option).appendChild(popup);
+            setTimeout(function() {
+                popup.style.display = "none";
+            }, 2000);
+        },
+
+        popUp: function (x ,y){
+            let obj = GAMEPLAY.ShipInfo.find(o => o.CODE === GAMEPLAY.Board[x][y].ship);
+            var popup = document.createElement("div");
+            popup.innerHTML = `HIT ${obj.name}`;
+            popup.style.color = "rgba(255,0,98,0.82)"
+            popup.style.background = 'rgba(33,27,27,0.45)'
+            popup.style.borderRadius = '70px'
+            popup.style.textAlign = "center"
+            popup.style.fontSize = '40px'
+            document.getElementById('boatStats').appendChild(popup);
+            setTimeout(function() {
+                popup.style.display = "none";
+            }, 1000);
+
+        },
+        checkSunkShip: function (ship) {
+            let checkVal = ship.ship
+            let obj = GAMEPLAY.ShipInfo.find(o => o.CODE === ship.ship);
+            let hitCt = 0;
+
+            for (let i = 0; i < GAMEPLAY.Board.length; i++) {
+                for (let j = 0; j < GAMEPLAY.Board.length; j++) {
+                    if (GAMEPLAY.Board[i][j].ship === checkVal && GAMEPLAY.Board[i][j].Hit == true) {
+                        hitCt++
+                    }
+                }
+            }
+            if (hitCt === obj.MaxHP) {
+                for (let i = 0; i < GAMEPLAY.Board.length; i++) {
+                    for (let j = 0; j < GAMEPLAY.Board.length; j++) {
+                        if (GAMEPLAY.Board[i][j].ship === checkVal) {
+                            GAMEPLAY.Board[i][j].Hit = 's'
+                            document.getElementById(`Astat${obj.CODE}`).innerHTML = "SUNK!"
+                        }
+                    }
+                }
+                return true
+            }
+            return false
+        },
+        playGif: function (gifURL) {
+            var gif = document.createElement('img');
+            gif.style.width = "250px"
+            gif.style.marginLeft = "50px"
+            gif.src = gifURL;
+            document.getElementById('boatStats').appendChild(gif);
+            setTimeout(function () {
+                document.getElementById('boatStats').removeChild(gif);
+            }, 1500);
+        },
+        updateStats: function () {
+            document.getElementById('hits').innerHTML = GAMEPLAY.Hits;
+            document.getElementById('misses').innerHTML = GAMEPLAY.Misses;
+            document.getElementById('fired').innerHTML = GAMEPLAY.ShotsFired;
+            document.getElementById('shotsLeft').innerText = GAMEPLAY.ShotsLeft;
+            document.getElementById('shipsLeft').innerHTML = GAMEPLAY.ShipsLeft;
+            document.getElementById('shipsSank').innerHTML = GAMEPLAY.ShipsSank;
+
+            document.getElementById('ship1').innerHTML = GAMEPLAY.ShipInfo[0].HP
+            document.getElementById('ship2').innerHTML = GAMEPLAY.ShipInfo[1].HP
+            document.getElementById('ship3').innerHTML = GAMEPLAY.ShipInfo[2].HP
+            document.getElementById('ship4').innerHTML = GAMEPLAY.ShipInfo[3].HP
+            document.getElementById('ship5').innerHTML = GAMEPLAY.ShipInfo[4].HP
+            if(GAMEPLAY.checkWIN()){
+                let audio = new Audio('sounds/champ.mp3')
+                setTimeout(function () {
+                    audio.loop;
+                    audio.play()
+                    document.getElementById("endT").style.display = 'block'
+                    document.getElementById("fireworks").style.display = 'block'
+                    document.getElementById("showShip").style.display = 'none'
+                    document.getElementById('table1').style.display = 'none'
+                    document.body.innerHTML += `<div class="bouncing-div-2"><img height="250" width="400" src="imgs/You.webp" alt="YOU logo for win"></div>
+                                                <div class="bouncing-div"><img height="250" width="400" src="imgs/WON!.webp" alt="WON! logo for win"></div>`
+                    document.getElementById("showHide").innerHTML = `
+                   <tr>
+                    <td colspan="3">
+                            <button type="submit" onclick="location.reload()" class="btn btn-primary mb-2">
+                               You Won Reset Game
+                            </button>
+                           </td>
+                            </tr>`
+                }, 500);
+            }
+            else
+                if (GAMEPLAY.checkLoss()) {
+                    let audio = new Audio('sounds/WDH.mp3');
+                    setTimeout(function () {
+                    document.getElementById("endT").style.display = 'block'
+                    document.getElementById("showShip").style.display = 'none'
+                    document.getElementById('table1').style.display = 'none'
+
+                    document.body.innerHTML += `<div class="bouncing-div-2"><img height="250" width="400" src="imgs/YOU!.webp" alt="YOU logo for loss"></div>
+                                                <div class="bouncing-div"><img height="250" width="400" src="imgs/LOSE!.webp" alt="LOSE! logo for loss"></div>`
+                    document.getElementById("showHide").innerHTML = `
+                   <tr>
+                    <td colspan="3">
+                            <button type="submit" onclick="location.reload()" class="btn btn-primary mb-2">
+                                You Lose Reset Game
+                            </button>
+                           </td>
+                            </tr>`
+                }, 500);
+                    setTimeout(function (){
+                        audio.play()
+                    }, 2300);
+
+                }
+        },
+        HitSound: function () {
+            let audio = new Audio('sounds/Explosion Sound.mp3');
+            audio.play();
+        },
+        MissSound: function () {
+            let audio = new Audio('sounds/echo fart sound effect (no copyright).mp3');
+            let audio1 = new Audio('sounds/Bruh Sound Effect.mp3');
+            let audio2 = new Audio('sounds/Wut da heeeeeeeeeeeeeeel Oooh maa gaaaad No waaayyaayyaaaaae - Sound Effects (HD).mp3');
+            let audioOpt = [audio, audio1]
+            let rand = Math.floor(Math.random() * audioOpt.length);
+            audioOpt[rand].play();
+        },
+        showGrid: function () {
+            let board = document.getElementById("showShip")
+            let initBoard = document.getElementById('table1')
+            initBoard.style.display = 'none'
+            board.style.display = ''
+        },
+        hideGrid: function () {
+            let board = document.getElementById("table1")
+            let initBoard = document.getElementById('showShip')
+            initBoard.style.display = 'none'
+            board.style.display = ''
+
+        },
+        createGrid: function () {
+            let tRow = " ";
+            for (let r = 0; r < GAMEPLAY.Board.length; r++) {
+                tRow += `<tr id="R${r}">`;
+                for (let c = 0; c < GAMEPLAY.Board.length; c++) {
+                    let tokStr = `"${r}${c}"`
+                    let sq = GAMEPLAY.Board[r][c]
+                    if (sq.ship === null && sq.Hit === false) {
+                        tRow += `<td id="${tokStr}" class="cell1" onClick='checkHIT(${tokStr})'> <br>&nbsp; </td>`;
+                    } else if (sq.ship != null && sq.Hit === 's') {
+                        tRow += `<td id="${tokStr}" class="cell1"><img src="https://media1.giphy.com/media/3ohhwoER829Q2hWwx2/giphy.gif?cid=790b7611c3bbb44b4f45733d40757e9c9f58012439cfbb29&rid=giphy.gif&ct=share" height="45px" width="auto""></td>`;
+                    } else if (sq.ship != null && sq.Hit === true && sq.Hit !== 's') {
+                        tRow += `<td id="${tokStr}" class="cell1" onClick='checkHIT(${tokStr})'><img src="imgs/Explosion-PNG-Image-Background.png" height="45px" width="auto""></td>`;
+                    } else if (sq.ship === null && sq.Hit === true) {
+                        tRow += `<td id="${tokStr}" class="cell1" onClick='checkHIT(${tokStr})'><img src="imgs/cross.png" height="45px" width="35px""></td>`;
+                    } else {
+                        tRow += `<td id="${tokStr}" class="cell1" onClick='checkHIT(${tokStr})'> <br>&nbsp; </td>`;
+                    }
+                }
+                tRow += `</tr>`;
+            }
+            document.getElementById("table1").innerHTML = tRow;
+            document.getElementById('boatStats').style.display = "initial"
+            document.getElementById('logo').style.display = 'none'
+            document.getElementById("showShip").style.display = "none";
+            let tRow2 = " ";
+            for (let r = 0; r < GAMEPLAY.Board.length; r++) {
+                tRow2 += `<tr id="R${r}">`;
+                for (let c = 0; c < GAMEPLAY.Board.length; c++) {
+                    let tokStr = `"${r}${c}"`
+                    let sq = GAMEPLAY.Board[r][c]
+                    if (sq.ship === null) {
+                        tRow2 += `<td id="${tokStr}" class="cell1"> <br>&nbsp; </td>`;
+                    } else if (sq.ship != null) {
+                        tRow2 += `<td id="${tokStr}" class="cell1"><img src="imgs/Explosion-PNG-Image-Background.png" height="45px" width="auto""></td>`;
+                    } else if (sq.ship === null) {
+                        tRow2 += `<td id="${tokStr}" class="cell1"><img src="imgs/cross.png" height="45px" width="35px""></td>`;
+                    } else {
+                        tRow2 += `<td id="${tokStr}" class="cell1"> <br>&nbsp; </td>`;
+                    }
+                }
+                tRow2 += `</tr>`;
+            }
+            document.getElementById("showShip").innerHTML = tRow2;
+
+            let trow3 = " ";
+            for (let r = 0; r < GAMEPLAY.Board.length; r++) {
+                trow3 += `<tr id="R${r}">`;
+                for (let c = 0; c < GAMEPLAY.Board.length; c++) {
+                    let tokStr = `"${r}${c}"`
+                    let sq = GAMEPLAY.Board[r][c]
+                    if (sq.ship === null) {
+                        trow3 += `<td id="${tokStr}" class="cell1"> <br>&nbsp; </td>`;
+                    } else if (sq.ship != null) {
+                        trow3 += `<td id="${tokStr}" class="cell1"><img src="imgs/Explosion-PNG-Image-Background.png" height="45px" width="auto""></td>`;
+                    } else if (sq.ship === null) {
+                        trow3 += `<td id="${tokStr}" class="cell1"><img src="imgs/cross.png" height="45px" width="35px""></td>`;
+                    } else {
+                        trow3 += `<td id="${tokStr}" class="cell1"> <br>&nbsp; </td>`;
+                    }
+                }
+                trow3 += `</tr>`;
+            }
+            document.getElementById("endT").innerHTML = trow3;
+            document.getElementById("endT").style.display = 'none'
+        }
+    }
+    let GAMEPLAY = {
+        reduceHealth: function (ship) {
+            let obj = GAMEPLAY.ShipInfo.find(o => o.CODE === ship.ship);
+            obj.HP--
+        },
+        checkWIN: function () {
+            let sunkCT = 0
+            for (let i = 0; i < this.ShipInfo.length; i++) {
+                if (this.ShipInfo[i].HP === 0) {
+                    sunkCT++
+                }
+            }
+            document.getElementById('shipsSank').innerHTML = sunkCT
+            if (sunkCT === 5) {
+                return true
+            }
+            return false
+        },
+        checkLoss: function () {
+            if (GAMEPLAY.ShotsFired == GAMEPLAY.ShotsSelected) {
+                return true
+            }
+            return false
+        }
+        ,
+        USER: {
+            name: null,
+            cheatStatus: false,
+
+            getName: function () {
+                let uName = document.getElementById('uName').value
+                let uTurn = document.getElementById('userTurnDec').value
+                if (valid(uName) && valid(uTurn)) {
+                    if (isNaN(uTurn) || uTurn < 1 || uTurn > 100) {
+                        document.getElementById('maxTurns').innerHTML = `<input min="1" step="1" onkeypress="return event.charCode >= 48 && event.charCode <= 57" type="number" class="form-control" id="userTurnDec" placeholder="Max Turns">`
+                        document.getElementById('maxTurns').innerHTML += `<span style="float: left;color: red"> Invalid input : Must enter a number from 1 - 100</span>`
+                        setTimeout(function () {
+                            document.getElementById('maxTurns').innerHTML = `<input min="1" step="1" onkeypress="return event.charCode >= 48 && event.charCode <= 57" type="number" class="form-control" id="userTurnDec" placeholder="Max Turns">`
+                        }, 5000)
+                    } else {
+                        GAMEPLAY.ShotsLeft = uTurn
+                        GAMEPLAY.ShotsSelected = uTurn
+                        document.getElementById('stats').style.display = "block"
+                        document.getElementById('loginInfo').style.display = "none"
+                        document.getElementById('fireworks').style.display = "none"
+                        document.getElementById('initInfo').innerHTML =
+                            `<td colspan="2">
+                                <h4>
+                                ${uName}'s War Board
+                                </h4>
+                             </td>
+                             <td>
+                             <h4>
+                            Max turns : ${GAMEPLAY.ShotsLeft}
+                            </h4>
+                            </td>`
+                        UI.createGrid()
+                        GAMEPLAY.ranSHIP()
+                        UI.updateStats()
+                    }
+                }
+            }
+        },
+
+        Hits: 0,
+        Misses: 0,
+        ShotsFired: 0,
+        ShotsLeft: null,
+        ShotsSelected: null,
+        ShipsLeft: 5,
+        ShipsSank: 0,
+
+        Ships: [
+            {name: 'Carrier', CODE: 'CA', HP: 5},
+            {name: 'BattleShip', CODE: 'BA', HP: 4},
+            {name: 'Submarine', CODE: 'SU', HP: 3},
+            {name: 'Cruiser', CODE: "CR", HP: 3},
+            {name: 'Destroyer', CODE: 'DE', HP: 2},
+        ],
+
+        ShipInfo: [
+            {name: 'Carrier', HP: 5, CODE: 'CA', POS: 0, MaxHP: 5},
+            {name: 'BattleShip', HP: 4, CODE: 'BA', POS: 1, MaxHP: 4},
+            {name: 'Submarine', HP: 3, CODE: 'SU', POS: 2, MaxHP: 3},
+            {name: 'Cruiser', HP: 3, CODE: "CR", POS: 3, MaxHP: 3},
+            {name: 'Destroyer', HP: 2, CODE: 'DE', POS: 4, MaxHP: 2}
+        ],
+
+        Board:[
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],
+            [{ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}, {ship: null, Hit: false}],],
+
+        ranSHIP() {
+
+            shuffle(this.Ships)
+            let x = getRandomInt(4, 5)
+            let ship = this.Ships.pop()
+            if (this.Board[x][3].ship == null) {
+                this.Board[x][3].ship = ship.CODE
+                for (let i = 0; i < ship.HP; i++) {
+                    this.Board[x][x - i].ship = ship.CODE
+                }
+            }
+
+            let x1 = getRandomInt(7, 9)
+            let y1 = getRandomInt(6, 9)
+            let ship1 = this.Ships.pop()
+            if (this.Board[x1][y1].ship == null) {
+                this.Board[x1][y1].ship = ship1.CODE
+                for (let i = 0; i < ship1.HP; i++) {
+                    this.Board[x1 - i][y1].ship = ship1.CODE
+                }
+            }
+
+            let x2 = getRandomInt(0, 2)
+            let y2 = getRandomInt(6, 9)
+            let ship2 = this.Ships.pop()
+            if (this.Board[x2][y2].ship == null) {
+                this.Board[x2][y2].ship = ship2.CODE
+                for (let i = 0; i < ship2.HP; i++) {
+                    this.Board[x2][y2--].ship = ship2.CODE
+                }
+            }
+
+            let x3 = getRandomInt(7, 9)
+            let y3 = getRandomInt(0, 2)
+            let ship3 = this.Ships.pop()
+            if (this.Board[x3][y3].ship == null) {
+                this.Board[x3][y3].ship = ship3.CODE
+                for (let i = 0; i < ship3.HP; i++) {
+                    this.Board[x3][y3++].ship = ship3.CODE
+                }
+            }
+
+            let x4 = getRandomInt(0, 2)
+            let y4 = getRandomInt(0, 0)
+            let ship4 = this.Ships.pop()
+            if (this.Board[x4][y4].ship == null) {
+                this.Board[x4][y4].ship = ship4.CODE
+                for (let i = 0; i < ship4.HP; i++) {
+                    this.Board[x4 + i][y4].ship = ship4.CODE
+                }
+            }
+
+            UI.createGrid()
+            console.table(this.Board)
+        }
+    }
+
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(array) {
+        var currentIndex = array.length,
+            temporaryValue, randomIndex;
+        while (0 !== currentIndex) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+            temporaryValue = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temporaryValue;
+        }
+        return array;
+    }
+
+    function valid(element) {
+        if (!element.match(/\S/)) {
+            alert("Field is blank");
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+
+</script>
+<body>
+<!--//Gameplay Grid-->
+<div class="grid-container" style="padding-top: 30px;">
+
+    <div style="table-layout:fixed; ;display: none; max-height: 550px; overflow-y: hidden ;padding-left: 10px; min-width: 400px" id="stats">
+
+        <table class="table table-hover table-dark">
+            <thead>
+            <tr>
+                <th style="text-align: center" colspan="4" scope="row">Game Stats</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr id="initInfo">
+
+            <tr>
+                <th colspan="2" scope="row">Hits</th>
+                <td id="hits" colspan="1">0</td>
+            </tr>
+
+            <tr>
+                <th colspan="2" scope="row">Misses</th>
+                <td id="misses" colspan="1">0</td>
+            </tr>
+            <tr>
+                <th colspan="2" scope="row">Shots Fired</th>
+                <td id="fired" colspan="1">0</td>
+            </tr>
+            <tr>
+                <th colspan="2" scope="row">Shots Left</th>
+                <td id="shotsLeft" colspan="1">0</td>
+            </tr>
+            <tr>
+                <th colspan="2" scope="row">Ships Sank</th>
+                <td id="shipsSank" colspan="1">0</td>
+            </tr>
+            <tr>
+                <th colspan="2" scope="row">Ships Left</th>
+                <td id="shipsLeft" colspan="1">0</td>
+            </tr>
+            <thead style="text-align: center">
+            <tr>
+                <td style="text-align: center" colspan="0">Hit:&nbsp; <img src="imgs/Explosion-PNG-Image-Background.png"
+                                                                           height="40px"></td>
+                <td style="text-align: right">Miss:&nbsp;<img src="imgs/cross.png" height="40px"></td>
+                <td colspan="0"></td>
+            </tr>
+            <tr id="showHide">
+                <td colspan="5">
+                    <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                        <label class="btn btn-secondary active">
+                            <input type="radio" name="options" id="option1" onclick="UI.hideGrid() " checked
+                                   autocomplete="off"> Hide Ships
+                        </label>
+                        <label class="btn btn-secondary">
+                            <input type="radio" name="options" id="option2" onclick="UI.showGrid()" autocomplete="off">
+                            Show Ships
+                        </label>
+                    </div>
+                </td>
+            </tr>
+            </thead>
+        </table>
+    </div>
+
+    <div style="min-width: 500px; max-width: 500">
+        <div id="tableSIZE" style="position: relative;">
+            <video id="background-video" autoplay loop muted poster="">
+                <source src="imgs/SnapSave.io-Liquid%20Motion%20Graphics%20Background,%20Water%20Surface%20Video%20Background%20Loop%20_%20Free%20Stock%20Footage-(1080p).mp4"
+                        type="video/mp4">
+            </video>
+            <table class="table table-bordered tableLook" id="showShip"></table>
+        </div>
+
+        <div id="tableSIZE" style="position: relative;">
+            <video id="background-video" autoplay loop muted poster="">
+                <source src="imgs/SnapSave.io-Liquid%20Motion%20Graphics%20Background,%20Water%20Surface%20Video%20Background%20Loop%20_%20Free%20Stock%20Footage-(1080p).mp4"
+                        type="video/mp4">
+            </video>
+            <table onclick="UI.createGrid()" class="table table-bordered tableLook" id="table1"></table>
+        </div>
+
+        <div id="tableSIZE" style="position: relative;">
+            <video id="background-video" autoplay loop muted poster="">
+                <source src="imgs/SnapSave.io-Liquid%20Motion%20Graphics%20Background,%20Water%20Surface%20Video%20Background%20Loop%20_%20Free%20Stock%20Footage-(1080p).mp4"
+                        type="video/mp4">
+            </video>
+            <script>let message = "Game Over...to play again press reset button above"</script>
+            <table onclick="UI.popUpError('stats',message)" class="table table-bordered tableLook" id="endT"></table>
+        </div>
+
+    </div>
+
+    <div id="boatStats" style="table-layout:fixed;display: none; min-width: 400px;">
+        <table class="table table-hover table-dark">
+            <thead>
+            <tr>
+                <th colspan="4" style="text-align: center" scope="row">Ships</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td colspan="1" id="CA">
+                    <img src="imgs/2.png" width="100" height="40">
+
+                </td>
+                <td id="AstatCA">
+                    Active
+                </td>
+                <td>
+                    HP:
+                </td>
+                <td id="ship1">
+                    0
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="1" id="BA">
+                    <img src="imgs/3.png" width="100" height="40">
+                </td>
+                <td id="AstatBA">
+                    Active
+                </td>
+                <td>
+                    HP:
+                </td>
+                <td id="ship2">
+                    0
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="1" id="SU">
+                    <img src="imgs/3z.png" width="100" height="40">
+                </td>
+                <td id="AstatSU">
+                    Active
+                </td>
+                <td>
+                    HP:
+                </td>
+                <td id="ship3">
+                    0
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="1" id="CR">
+                    <img src="imgs/4.png" width="100" height="40">
+                </td>
+                <td id="AstatCR">
+                    Active
+                </td>
+                <td>
+                    HP:
+                </td>
+                <td id="ship4">
+                    0
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="1" id="DE">
+                    <img src="imgs/2.png" width="100" height="40">
+                </td>
+                <td id="AstatDE">
+                    Active
+                </td>
+                <td>
+                    HP:
+                </td>
+                <td id="ship5">
+                    0
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+<!--//Login Grid-->
+<div class="grid-container2">
+    <div>
+        <img id="logo" style="padding-bottom: 40px" class="centerIMG" src="imgs/Logo.png" height="475px";>
+        <div><table class="center" style="width: 800px" id="loginInfo">
+            <td>
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <div class="input-group mb-2">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text">@</div>
+                            </div>
+                            <input type="text" class="form-control" id="uName" placeholder="Name">
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <div class="input-group mb-2" id="maxTurns">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text">#</div>
+                            </div>
+                            <input min="1" step="1" onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                                   type="number" class="form-control" id="userTurnDec"
+                                   placeholder="Max Turns (35 - 50) Reccomended">
+                        </div>
+                    </div>
+                </div>
+            <td>
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <button type="submit" onclick="GAMEPLAY.USER.getName()" class="btn btn-primary mb-2">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+            </td>
+        </table></div>
+        <div>
+            <img class="gif" src="http://soda.data.sh.gov.cn/imgs/wave.gif">
+            <img class="gif" id="fireworks" src="https://cliply.co/wp-content/uploads/2021/09/CLIPLY_372109170_FREE_FIREWORKS_400.gif">
+        </div>
+    </div>
+</div>
+<!--//Bottom-->
+
+</body>
+</html>
